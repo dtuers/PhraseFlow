@@ -1,18 +1,313 @@
-<!doctype html>
-<html lang="cs">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#DF0024" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="PhraseFlow" />
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-  <title>PhraseFlow</title>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="./src/main.jsx"></script>
-</body>
-</html>
+
+import React, { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  BookOpen, Gamepad2, Plane, Film, HeartPulse, House, Volume2,
+  VolumeX, Sun, Moon, Trophy, Flame, ChevronRight, RotateCcw,
+  Layers3, Dumbbell, CheckCircle2, XCircle, Shuffle
+} from "lucide-react";
+
+// V produkční verzi se tento objekt nahradí importy z /src/data/*.js.
+// Např.: import gaming from "./data/gaming.js";
+const lessons = {
+  gaming: {
+    title: "Gaming",
+    icon: Gamepad2,
+    color: "#00AEEF",
+    image: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80",
+    levels: [
+      {
+        id: "gaming-1",
+        title: "Začínáme hrát",
+        xp: 20,
+        items: [
+          { id: "g1", type: "phrase", cs: "Připoj se k mému týmu.", en: "Join my team.", words: ["Join", "my", "team."], distractors: ["your", "game"], hint: "join = připojit se" },
+          { id: "g2", type: "word", cs: "úroveň", en: "level", words: ["level"], distractors: ["life", "leave"], hint: "Nová herní úroveň" },
+          { id: "g3", type: "phrase", cs: "Potřebuji více munice.", en: "I need more ammo.", words: ["I", "need", "more", "ammo."], distractors: ["have", "many"], hint: "ammo = munice" },
+          { id: "g4", type: "phrase", cs: "Kde je další kontrolní bod?", en: "Where is the next checkpoint?", words: ["Where", "is", "the", "next", "checkpoint?"], distractors: ["What", "last"], hint: "checkpoint = kontrolní bod" }
+        ]
+      },
+      {
+        id: "gaming-2",
+        title: "Týmová hra",
+        xp: 30,
+        items: [
+          { id: "g5", type: "phrase", cs: "Kryj mě!", en: "Cover me!", words: ["Cover", "me!"], distractors: ["Open", "you"], hint: "Krátký pokyn spoluhráči" },
+          { id: "g6", type: "word", cs: "spoluhráč", en: "teammate", words: ["teammate"], distractors: ["teamwork", "enemy"], hint: "Člen tvého týmu" },
+          { id: "g7", type: "phrase", cs: "Nepřítel je za námi.", en: "The enemy is behind us.", words: ["The", "enemy", "is", "behind", "us."], distractors: ["before", "we"], hint: "behind = za" }
+        ]
+      }
+    ]
+  },
+  vacation: {
+    title: "Dovolená",
+    icon: Plane,
+    color: "#43B02A",
+    image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
+    levels: [{ id: "vacation-1", title: "Na letišti", xp: 20, items: [
+      { id: "v1", type: "phrase", cs: "Kde je odbavení?", en: "Where is the check-in desk?", words: ["Where", "is", "the", "check-in", "desk?"], distractors: ["gate", "are"], hint: "check-in desk = odbavovací přepážka" },
+      { id: "v2", type: "word", cs: "zavazadlo", en: "luggage", words: ["luggage"], distractors: ["holiday", "ticket"], hint: "To, co odevzdáš u přepážky" },
+      { id: "v3", type: "phrase", cs: "Chtěl bych pokoj s výhledem.", en: "I would like a room with a view.", words: ["I", "would", "like", "a", "room", "with", "a", "view."], distractors: ["have", "window"], hint: "would like = chtěl bych" }
+    ]}]
+  },
+  movies: {
+    title: "Movies",
+    icon: Film,
+    color: "#FFB81C",
+    image: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1200&q=80",
+    levels: [{ id: "movies-1", title: "V kině", xp: 20, items: [
+      { id: "m1", type: "phrase", cs: "Kdy film začíná?", en: "When does the movie start?", words: ["When", "does", "the", "movie", "start?"], distractors: ["is", "finish"], hint: "Otázka na čas začátku" },
+      { id: "m2", type: "word", cs: "titulky", en: "subtitles", words: ["subtitles"], distractors: ["actors", "screen"], hint: "Text dole na obrazovce" }
+    ]}]
+  },
+  life: {
+    title: "Life",
+    icon: House,
+    color: "#506E81",
+    image: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80",
+    levels: [{ id: "life-1", title: "Běžný den", xp: 20, items: [
+      { id: "l1", type: "phrase", cs: "V kolik hodin vstáváš?", en: "What time do you get up?", words: ["What", "time", "do", "you", "get", "up?"], distractors: ["When", "wake"], hint: "get up = vstát" },
+      { id: "l2", type: "word", cs: "snídaně", en: "breakfast", words: ["breakfast"], distractors: ["dinner", "break"], hint: "První jídlo dne" }
+    ]}]
+  },
+  doctor: {
+    title: "Doktor",
+    icon: HeartPulse,
+    color: "#DF0024",
+    image: "https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=1200&q=80",
+    levels: [{ id: "doctor-1", title: "U lékaře", xp: 20, items: [
+      { id: "d1", type: "phrase", cs: "Bolí mě v krku.", en: "I have a sore throat.", words: ["I", "have", "a", "sore", "throat."], distractors: ["pain", "neck"], hint: "sore throat = bolest v krku" },
+      { id: "d2", type: "word", cs: "předpis", en: "prescription", words: ["prescription"], distractors: ["description", "medicine"], hint: "Doklad od lékaře na lék" }
+    ]}]
+  }
+};
+
+const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
+
+function speak(text, soundOn) {
+  if (!soundOn || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
+  utterance.rate = 0.85;
+  window.speechSynthesis.speak(utterance);
+}
+
+function App() {
+  const [dark, setDark] = useState(() => localStorage.getItem("pf-theme") === "dark");
+  const [soundOn, setSoundOn] = useState(() => localStorage.getItem("pf-sound") !== "off");
+  const [tab, setTab] = useState("phrases");
+  const [category, setCategory] = useState("gaming");
+  const [screen, setScreen] = useState("home");
+  const [levelIndex, setLevelIndex] = useState(0);
+  const [itemIndex, setItemIndex] = useState(0);
+  const [selected, setSelected] = useState([]);
+  const [pool, setPool] = useState([]);
+  const [result, setResult] = useState(null);
+  const [xp, setXp] = useState(() => Number(localStorage.getItem("pf-xp") || 0));
+  const [hearts, setHearts] = useState(5);
+  const [completed, setCompleted] = useState(() => JSON.parse(localStorage.getItem("pf-completed") || "[]"));
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("pf-theme", dark ? "dark" : "light");
+  }, [dark]);
+  useEffect(() => localStorage.setItem("pf-sound", soundOn ? "on" : "off"), [soundOn]);
+  useEffect(() => localStorage.setItem("pf-xp", String(xp)), [xp]);
+  useEffect(() => localStorage.setItem("pf-completed", JSON.stringify(completed)), [completed]);
+
+  const currentCategory = lessons[category];
+  const currentLevel = currentCategory.levels[levelIndex] || currentCategory.levels[0];
+  const filteredItems = useMemo(() => {
+    if (tab === "words") return currentLevel.items.filter((x) => x.type === "word").length
+      ? currentLevel.items.filter((x) => x.type === "word") : currentLevel.items;
+    return currentLevel.items;
+  }, [currentLevel, tab]);
+  const item = filteredItems[itemIndex % filteredItems.length];
+
+  useEffect(() => {
+    if (!item) return;
+    setPool(shuffle([...item.words, ...(item.distractors || [])]));
+    setSelected([]);
+    setResult(null);
+  }, [item?.id, tab]);
+
+  const startLevel = (index) => {
+    setLevelIndex(index);
+    setItemIndex(0);
+    setHearts(5);
+    setScreen("lesson");
+  };
+
+  const chooseWord = (word, index) => {
+    if (result) return;
+    setSelected((s) => [...s, word]);
+    setPool((p) => p.filter((_, i) => i !== index));
+  };
+
+  const returnWord = (word, index) => {
+    if (result) return;
+    setPool((p) => [...p, word]);
+    setSelected((s) => s.filter((_, i) => i !== index));
+  };
+
+  const check = () => {
+    const answer = selected.join(" ");
+    const correct = answer === item.en;
+    setResult(correct ? "correct" : "wrong");
+    if (correct) {
+      setXp((v) => v + 5);
+      speak(item.en, soundOn);
+    } else setHearts((v) => Math.max(0, v - 1));
+  };
+
+  const next = () => {
+    const isLast = itemIndex >= filteredItems.length - 1;
+    if (isLast) {
+      const levelId = currentLevel.id;
+      if (!completed.includes(levelId)) setCompleted((c) => [...c, levelId]);
+      setXp((v) => v + currentLevel.xp);
+      setScreen("complete");
+    } else setItemIndex((i) => i + 1);
+  };
+
+  const reset = () => {
+    setSelected([]);
+    setPool(shuffle([...item.words, ...(item.distractors || [])]));
+    setResult(null);
+  };
+
+  const navItems = [
+    { id: "phrases", label: "Fráze", icon: BookOpen },
+    { id: "words", label: "Slovíčka", icon: Layers3 },
+    { id: "practice", label: "Opakování", icon: Dumbbell }
+  ];
+
+  return (
+    <div className={dark ? "dark" : ""}>
+      <div className="min-h-screen bg-white text-[#2D3E48] transition-colors dark:bg-[#17242D] dark:text-white pb-28">
+        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-[#17242D]/90">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+            <button onClick={() => setScreen("home")} className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#DF0024] text-xl font-black text-white shadow-lg shadow-red-500/20">P</span>
+              <div className="text-left leading-tight">
+                <div className="font-black tracking-tight">PhraseFlow</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">English by playing</div>
+              </div>
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="hidden items-center gap-1 rounded-full bg-slate-100 px-3 py-2 text-sm font-bold sm:flex dark:bg-white/10"><Flame size={17} className="text-[#DF0024]"/> 3</div>
+              <div className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-2 text-sm font-bold dark:bg-white/10"><Trophy size={17} className="text-[#FFB81C]"/> {xp} XP</div>
+              <button aria-label="Zvuk" onClick={() => setSoundOn(!soundOn)} className="rounded-full p-2.5 hover:bg-slate-100 dark:hover:bg-white/10">{soundOn ? <Volume2 size={20}/> : <VolumeX size={20}/>}</button>
+              <button aria-label="Motiv" onClick={() => setDark(!dark)} className="rounded-full p-2.5 hover:bg-slate-100 dark:hover:bg-white/10">{dark ? <Sun size={20}/> : <Moon size={20}/>}</button>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-5xl px-4 py-6">
+          <AnimatePresence mode="wait">
+            {screen === "home" && (
+              <motion.div key="home" initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}}>
+                <section className="relative overflow-hidden rounded-[28px] bg-[#2D3E48] p-6 text-white shadow-xl sm:p-9">
+                  <div className="absolute -right-12 -top-16 h-52 w-52 rounded-full bg-[#00AEEF]/30 blur-2xl"/>
+                  <div className="absolute -bottom-20 right-24 h-44 w-44 rounded-full bg-[#DF0024]/25 blur-2xl"/>
+                  <div className="relative max-w-xl">
+                    <span className="mb-4 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest">Denní mise · 10 minut</span>
+                    <h1 className="text-3xl font-black leading-tight sm:text-5xl">Poskládej angličtinu. Zapamatuj si ji hraním.</h1>
+                    <p className="mt-4 max-w-lg text-sm leading-6 text-slate-200 sm:text-base">Krátké úrovně, obrázkové kategorie, chytré opakování frází a okamžitá výslovnost.</p>
+                  </div>
+                </section>
+
+                <div className="mt-8 flex items-end justify-between">
+                  <div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#DF0024]">Vyber téma</p><h2 className="mt-1 text-2xl font-black">Co chceš dnes trénovat?</h2></div>
+                  <button onClick={() => setCategory(Object.keys(lessons)[Math.floor(Math.random()*Object.keys(lessons).length)])} className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold hover:bg-slate-100 dark:hover:bg-white/10"><Shuffle size={17}/> Náhodně</button>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                  {Object.entries(lessons).map(([key, cat]) => {
+                    const Icon = cat.icon;
+                    return <button key={key} onClick={() => setCategory(key)} className={`group overflow-hidden rounded-2xl border text-left transition hover:-translate-y-1 hover:shadow-lg ${category===key ? "border-[#DF0024] ring-2 ring-[#DF0024]/15" : "border-slate-200 dark:border-white/10"}`}>
+                      <div className="h-24 bg-cover bg-center transition-transform group-hover:scale-105" style={{backgroundImage:`linear-gradient(180deg,transparent,rgba(0,0,0,.45)),url(${cat.image})`}} />
+                      <div className="flex items-center gap-2 bg-white p-3 dark:bg-[#21313B]"><span className="grid h-8 w-8 place-items-center rounded-lg text-white" style={{background:cat.color}}><Icon size={17}/></span><span className="font-extrabold">{cat.title}</span></div>
+                    </button>
+                  })}
+                </div>
+
+                <div className="mt-8 grid gap-4">
+                  {currentCategory.levels.map((level, index) => {
+                    const done = completed.includes(level.id);
+                    return <motion.button whileTap={{scale:.99}} key={level.id} onClick={() => startLevel(index)} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-[#00AEEF] hover:shadow-md dark:border-white/10 dark:bg-[#21313B]">
+                      <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-xl font-black text-white" style={{background:done ? "#43B02A" : currentCategory.color}}>{done ? <CheckCircle2/> : index+1}</div>
+                      <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase tracking-widest text-slate-400">Úroveň {index+1}</p><h3 className="truncate text-lg font-black">{level.title}</h3><p className="text-sm text-slate-500 dark:text-slate-400">{level.items.length} úkoly · +{level.xp} XP</p></div>
+                      <ChevronRight/>
+                    </motion.button>
+                  })}
+                </div>
+              </motion.div>
+            )}
+
+            {screen === "lesson" && item && (
+              <motion.div key="lesson" initial={{opacity:0,x:20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-20}} className="mx-auto max-w-2xl">
+                <div className="mb-6 flex items-center gap-3">
+                  <button onClick={() => setScreen("home")} className="text-2xl text-slate-400">×</button>
+                  <div className="h-3 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"><motion.div className="h-full rounded-full bg-[#00AEEF]" animate={{width:`${((itemIndex+1)/filteredItems.length)*100}%`}}/></div>
+                  <span className="font-bold text-[#DF0024]">♥ {hearts}</span>
+                </div>
+
+                <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-xl sm:p-8 dark:border-white/10 dark:bg-[#21313B]">
+                  <div className="mb-6 flex items-center justify-between">
+                    <span className="rounded-full bg-[#00AEEF]/10 px-3 py-1 text-xs font-black uppercase tracking-widest text-[#007FAD] dark:text-[#5DCEF5]">{item.type === "word" ? "Slovíčko" : "Slož frázi"}</span>
+                    <button onClick={() => speak(item.en, soundOn)} className="rounded-full bg-slate-100 p-3 text-[#2D3E48] dark:bg-white/10 dark:text-white"><Volume2 size={20}/></button>
+                  </div>
+                  <h2 className="text-2xl font-black sm:text-3xl">{item.cs}</h2>
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{item.hint}</p>
+
+                  <div className="mt-7 min-h-20 rounded-2xl border-2 border-dashed border-slate-200 p-3 dark:border-white/15">
+                    <div className="flex flex-wrap gap-2">
+                      {selected.map((word, i) => <motion.button layout key={`${word}-${i}`} onClick={() => returnWord(word,i)} className="rounded-xl bg-[#2D3E48] px-4 py-3 font-bold text-white shadow-sm dark:bg-[#506E81]">{word}</motion.button>)}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex min-h-20 flex-wrap content-start justify-center gap-2">
+                    {pool.map((word, i) => <motion.button layout whileTap={{scale:.94}} key={`${word}-${i}`} onClick={() => chooseWord(word,i)} className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-bold shadow-[0_3px_0_#cbd5e1] transition hover:border-[#00AEEF] dark:border-white/15 dark:bg-[#17242D] dark:shadow-[0_3px_0_#0f181e]">{word}</motion.button>)}
+                  </div>
+
+                  <div className="mt-6 flex gap-3">
+                    <button onClick={reset} className="rounded-xl border border-slate-200 p-3 dark:border-white/10"><RotateCcw size={20}/></button>
+                    {!result ? <button disabled={!selected.length} onClick={check} className="flex-1 rounded-xl bg-[#DF0024] px-5 py-4 font-black text-white shadow-[0_4px_0_#9f001a] disabled:opacity-40">Zkontrolovat</button>
+                    : <button onClick={next} className={`flex-1 rounded-xl px-5 py-4 font-black text-white ${result === "correct" ? "bg-[#43B02A]" : "bg-[#DF0024]"}`}>Pokračovat</button>}
+                  </div>
+
+                  <AnimatePresence>
+                    {result && <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} className={`mt-4 flex items-start gap-3 rounded-2xl p-4 ${result === "correct" ? "bg-green-50 text-green-800 dark:bg-green-500/15 dark:text-green-300" : "bg-red-50 text-red-800 dark:bg-red-500/15 dark:text-red-300"}`}>
+                      {result === "correct" ? <CheckCircle2/> : <XCircle/>}<div><p className="font-black">{result === "correct" ? "Správně! +5 XP" : "Ještě jednou příště"}</p><p className="text-sm">Správná odpověď: <b>{item.en}</b></p></div>
+                    </motion.div>}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+
+            {screen === "complete" && (
+              <motion.div key="complete" initial={{opacity:0,scale:.92}} animate={{opacity:1,scale:1}} className="mx-auto max-w-lg py-10 text-center">
+                <div className="mx-auto grid h-28 w-28 place-items-center rounded-full bg-[#FFB81C] text-white shadow-xl"><Trophy size={56}/></div>
+                <p className="mt-6 text-sm font-black uppercase tracking-[.2em] text-[#DF0024]">Úroveň dokončena</p>
+                <h2 className="mt-2 text-4xl font-black">Skvělá práce!</h2>
+                <p className="mt-3 text-slate-500 dark:text-slate-400">Získáváš {currentLevel.xp} XP. Některé fráze se později vrátí v opakování.</p>
+                <button onClick={() => setScreen("home")} className="mt-7 w-full rounded-xl bg-[#2D3E48] px-5 py-4 font-black text-white dark:bg-[#506E81]">Zpět na úrovně</button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+
+        <nav className="fixed bottom-3 left-1/2 z-40 flex w-[calc(100%-24px)] max-w-md -translate-x-1/2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#21313B]/95">
+          {navItems.map(({id,label,icon:Icon}) => <button key={id} onClick={() => {setTab(id === "practice" ? "phrases" : id); setScreen("home")}} className={`relative flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[11px] font-extrabold transition ${tab===id || (id==="phrases" && tab==="phrases") ? "text-[#DF0024]" : "text-slate-500 dark:text-slate-400"}`}>
+            {(tab===id || (id==="phrases" && tab==="phrases")) && <motion.div layoutId="nav-pill" className="absolute inset-0 rounded-xl bg-[#DF0024]/8"/>}
+            <Icon className="relative" size={21}/><span className="relative">{label}</span>
+          </button>)}
+        </nav>
+      </div>
+    </div>
+  );
+}
+
+export default App;
